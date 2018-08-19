@@ -19,7 +19,6 @@ import           Data.Text.Encoding       (decodeUtf8)
 import           Level02.Types           (ContentType(..), Error(..), RqType(..),
                                            mkCommentText, mkTopic,
                                            renderContentType)
-
 -- --------------------------------------------
 -- - Don't start here, go to Level02.Types!  -
 -- --------------------------------------------
@@ -94,10 +93,11 @@ mkErrorResponse UnknownRoute = resp404 PlainText "Please provide a valid path"
 -- cares about.
 mkRequest
   :: Request
+  -> (Request -> IO LBS.ByteString)
   -> IO ( Either Error RqType )
-mkRequest req =
+mkRequest req bodyExtractor =
   case (requestMethod req, pathInfo req) of
-    ("POST", [topic, "add"])  -> mkAddRequest topic <$> strictRequestBody req
+    ("POST", [topic, "add"])  -> mkAddRequest topic <$> (bodyExtractor req)
     ("GET",  [topic, "view"]) -> pure $ mkViewRequest topic
     ("GET",  ["list"])        -> pure $ mkListRequest
     (_, _)                    -> pure $ Left UnknownRoute
@@ -124,7 +124,7 @@ handleRequest ListRq      = Right $ resp200 PlainText "ListRq not implemented ye
 -- as a guide.
 app
   :: Application
-app req cb = do commandE  <- mkRequest req      -- IO ( Either Error RqType )
+app req cb = do commandE  <- mkRequest req strictRequestBody
                 let responseE = commandE >>= handleRequest
                 cb $ either mkErrorResponse id responseE
 
