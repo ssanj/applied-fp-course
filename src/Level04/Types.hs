@@ -30,7 +30,7 @@ import qualified Data.Aeson.Types          as A
 
 import           Data.Time                 (UTCTime)
 
-import           Level04.DB.Types          (DBComment)
+import           Level04.DB.Types          (DBComment(..))
 
 -- Notice how we've moved these types into their own modules. It's cheap and
 -- easy to add modules to carve out components in a Haskell application. So
@@ -71,8 +71,7 @@ data Comment = Comment
 modFieldLabel
   :: String
   -> String
-modFieldLabel =
-  error "modFieldLabel not implemented"
+modFieldLabel label = fromMaybe label $ stripPrefix "dbcomment" label
 
 instance ToJSON Comment where
   -- This is one place where we can take advantage of our `Generic` instance.
@@ -97,8 +96,11 @@ instance ToJSON Comment where
 fromDBComment
   :: DBComment
   -> Either Error Comment
-fromDBComment =
-  error "fromDBComment not yet implemented"
+fromDBComment dbComment =
+      Comment (CommentId     $ dbcommentId dbComment)
+          <$> (mkTopic       $ dbcommentTopic dbComment)
+          <*> (mkCommentText $ dbcommentBody dbComment)
+          <*> pure            (dbcommentTime dbComment)
 
 data RqType
   = AddRq Topic CommentText
