@@ -38,7 +38,7 @@ import           Level04.DB.Types          (DBComment(..))
 -- distinct functionality, or you want to carve out a particular piece of code,
 -- just spin up another module.
 import           Level04.Types.CommentText (CommentText, getCommentText, mkCommentText)
-import           Level04.Types.Error       (Error (EmptyCommentText, EmptyTopic, UnknownRoute))
+import           Level04.Types.Error       (Error (EmptyCommentText, EmptyTopic, UnknownRoute, DbError))
 import           Level04.Types.Topic       (Topic, getTopic, mkTopic)
 
 

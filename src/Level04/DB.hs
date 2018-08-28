@@ -22,7 +22,7 @@ import qualified Database.SQLite.SimpleErrors       as Sql
 import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 
 import           Level04.Types                      (Comment, CommentText,
-                                                     Error, Topic)
+                                                     Error(DbError), Topic, fromDBComment, getTopic, getCommentText, mkTopic)
 
 -- ------------------------------------------------------------------------|
 -- You'll need the documentation for sqlite-simple ready for this section! |
@@ -74,47 +74,47 @@ getComments
   :: FirstAppDB
   -> Topic
   -> IO (Either Error [Comment])
-getComments (FirstAppDB con) topic =
+getComments fdb topic =
   let
     sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
   -- There are several possible implementations of this function. Particularly
   -- there may be a trade-off between deciding to throw an Error if a DBComment
   -- cannot be converted to a Comment, or simply ignoring any DBComment that is
   -- not valid.
-  in  undefined
-  -- Sql.runDBAction $
-  --       liftA1 (either (Left . DbError) id) $
-  --         (traverse fromDBComment) <$> Sql.query con sql (Sql.Only (getTopic topic :: Text))
+  in runDB (traverse fromDBComment) $ Sql.query (dbConn fdb) sql (Sql.Only $ (getTopic topic :: Text))
+
+runDB :: (a -> Either Error b) -> IO a -> IO (Either Error b)
+runDB f ioa = (either (Left . DbError) f) <$> Sql.runDBAction ioa
 
 addCommentToTopic
   :: FirstAppDB
   -> Topic
   -> CommentText
   -> IO (Either Error ())
-addCommentToTopic =
+addCommentToTopic fdb topic comment =
   let
     sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
-  in
-    error "addCommentToTopic not implemented"
+  in do ct <- getCurrentTime
+        runDB Right $ Sql.execute (dbConn fdb) sql (getTopic topic, getCommentText comment, ct)
 
 sqlErrorToError :: SQLiteResponse -> Error
-sqlErrorToError _ = undefined
+sqlErrorToError = DbError
 
 getTopics
   :: FirstAppDB
   -> IO (Either Error [Topic])
-getTopics =
+getTopics fdb =
   let
     sql = "SELECT DISTINCT topic FROM comments"
   in
-    error "getTopics not implemented"
+    runDB (traverse (mkTopic . Sql.fromOnly)) $ Sql.query_ (dbConn fdb) sql
 
 deleteTopic
   :: FirstAppDB
   -> Topic
   -> IO (Either Error ())
-deleteTopic =
+deleteTopic fdb topic =
   let
     sql = "DELETE FROM comments WHERE topic = ?"
   in
-    error "deleteTopic not implemented"
+    runDB Right $ Sql.execute (dbConn fdb) sql $ Sql.Only (getTopic topic :: Text)
