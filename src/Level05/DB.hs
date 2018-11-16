@@ -30,7 +30,7 @@ import           Level05.Types                      (Comment, CommentText,
                                                      getCommentText, getTopic,
                                                      mkTopic)
 
-import           Level05.AppM                       (AppM)
+import           Level05.AppM                       (AppM(..))
 
 -- We have a data type to simplify passing around the information we need to run
 -- our database queries. This also allows things to change over time without
@@ -69,33 +69,51 @@ runDB
   :: (a -> Either Error b)
   -> IO a
   -> AppM b
-runDB =
-  error "Write 'runDB' to match the type signature"
+runDB f ioa = AppM $ do
+   esa <- Sql.runDBAction ioa
+   return $ case esa of
+    Left sqlEr -> Left $ DBError sqlEr -- map errors to Either Error b
+    Right a -> f a -- map successes to Either Error b
 
 getComments
   :: FirstAppDB
   -> Topic
   -> AppM [Comment]
-getComments =
-  error "Copy your completed 'getComments' and refactor to match the new type signature"
+getComments fdb topic =
+    let
+    sql = "SELECT id,topic,comment,time FROM comments WHERE topic = ?"
+  -- There are several possible implementations of this function. Particularly
+  -- there may be a trade-off between deciding to throw an Error if a DBComment
+  -- cannot be converted to a Comment, or simply ignoring any DBComment that is
+  -- not valid.
+  in runDB (traverse fromDBComment) $ Sql.query (dbConn fdb) sql (Sql.Only $ (getTopic topic :: Text))
 
 addCommentToTopic
   :: FirstAppDB
   -> Topic
   -> CommentText
   -> AppM ()
-addCommentToTopic =
-  error "Copy your completed 'appCommentToTopic' and refactor to match the new type signature"
+addCommentToTopic fdb topic comment =
+  let
+    sql = "INSERT INTO comments (topic,comment,time) VALUES (?,?,?)"
+  in do ct <- liftIO getCurrentTime
+        runDB Right $ Sql.execute (dbConn fdb) sql (getTopic topic, getCommentText comment, ct)
 
 getTopics
   :: FirstAppDB
   -> AppM [Topic]
-getTopics =
-  error "Copy your completed 'getTopics' and refactor to match the new type signature"
+getTopics fdb =
+  let
+    sql = "SELECT DISTINCT topic FROM comments"
+  in
+    runDB (traverse (mkTopic . Sql.fromOnly)) $ Sql.query_ (dbConn fdb) sql
 
 deleteTopic
   :: FirstAppDB
   -> Topic
   -> AppM ()
-deleteTopic =
-  error "Copy your completed 'deleteTopic' and refactor to match the new type signature"
+deleteTopic fdb topic =
+  let
+    sql = "DELETE FROM comments WHERE topic = ?"
+  in
+    runDB Right $ Sql.execute (dbConn fdb) sql $ Sql.Only (getTopic topic :: Text)
