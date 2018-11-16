@@ -22,7 +22,6 @@ import qualified Data.ByteString.Lazy               as LBS
 
 import           Data.Either                        (either)
 import           Data.Monoid                        ((<>))
-
 import           Data.Text                          (Text)
 import           Data.Text.Encoding                 (decodeUtf8)
 
@@ -39,6 +38,7 @@ import           Level06.Types                      (Conf, ContentType (..),
                                                      RqType (AddRq, ListRq, ViewRq),
                                                      mkCommentText, mkTopic,
                                                      renderContentType)
+
 
 -- Our start-up is becoming more complicated and could fail in new and
 -- interesting ways. But we also want to be able to capture these errors in a

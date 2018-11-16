@@ -13,7 +13,7 @@ import           Network.Wai                        (Application, Request,
                                                      requestMethod, responseLBS,
                                                      strictRequestBody)
 import           Network.Wai.Handler.Warp           (run)
-
+import           Data.Bifunctor                     (first)
 import           Network.HTTP.Types                 (Status, hContentType,
                                                      status200, status400,
                                                      status404, status500)
@@ -156,10 +156,6 @@ mkRequest rq =
     -- Finally we don't care about any other requests so build an Error response
     _                      -> pure ( Left UnknownRoute )
 
--- replace with bifunctor when you have Internet!
-first :: (a -> c) -> Either a b ->  Either c b
-first f (Left e)   = Left (f e)
-first _ (Right v)  = Right v
 
 mkAddRequest
   :: Text
