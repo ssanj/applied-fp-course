@@ -7,13 +7,13 @@ module Level05.Core
   ) where
 
 import           Control.Monad.IO.Class             (liftIO)
-
+import           Control.Exception                  (bracket)
 import           Network.Wai                        (Application, Request,
-                                                     Response, pathInfo,
+                                                     Response, ResponseReceived, pathInfo,
                                                      requestMethod, responseLBS,
                                                      strictRequestBody)
 import           Network.Wai.Handler.Warp           (run)
-
+import           Data.Bifunctor                     (first)
 import           Network.HTTP.Types                 (Status, hContentType,
                                                      status200, status400,
                                                      status404, status500)
@@ -31,7 +31,7 @@ import           Database.SQLite.SimpleErrors.Types (SQLiteResponse)
 import           Data.Aeson                         (ToJSON)
 import qualified Data.Aeson                         as A
 
-import           Level05.AppM                       (AppM, liftEither, runAppM)
+import           Level05.AppM                       (AppM(..), liftEither, runAppM)
 import qualified Level05.Conf                       as Conf
 import qualified Level05.DB                         as DB
 import           Level05.Types                      (ContentType (..),
@@ -49,12 +49,14 @@ data StartUpError
 
 runApp :: IO ()
 runApp = do
-  -- Load our configuration
-  cfgE <- prepareAppReqs
-  -- Loading the configuration can fail, so we have to take that into account now.
-  case cfgE of
-    Left err   -> undefined
-    Right _cfg -> run undefined undefined
+          -- Load our configuration
+           cfgE  <- prepareAppReqs
+           either print (\cfg -> bracket (pure cfg) DB.closeDB (run 9000 . app)) cfgE
+
+  -- -- Loading the configuration can fail, so we have to take that into account now.
+  -- case cfgE of
+  --   Left err   ->  print err
+  --   Right _cfg -> bracket (pure _cfg) DB.closeDB (run 9000 . app)
 
 -- We need to complete the following steps to prepare our app requirements:
 --
@@ -65,8 +67,8 @@ runApp = do
 --
 prepareAppReqs
   :: IO ( Either StartUpError DB.FirstAppDB )
-prepareAppReqs =
-  error "copy your prepareAppReqs from the previous level."
+prepareAppReqs = (first DBInitErr) <$> DB.initDB (Conf.dbFilePath Conf.firstAppConfig) -- IO ( Either SQLiteResponse FirstAppDB )
+
 
 -- | Some helper functions to make our lives a little more DRY.
 mkResponse
@@ -115,11 +117,18 @@ resp200Json =
 
 -- How has this implementation changed, now that we have an AppM to handle the
 -- errors for our application? Could it be simplified? Can it be changed at all?
+
+-- type Application = Request -> (Response -> IO ResponseReceived) -> IO ResponseReceived
+
 app
   :: DB.FirstAppDB
   -> Application
 app db rq cb =
-  error "app not reimplemented"
+   let appResponseM = mkRequest rq >>= handleRequest db
+       responseIOEA = runAppM appResponseM
+    in do
+       responseEA <- responseIOEA
+       either (cb . mkErrorResponse) cb responseEA
 
 handleRequest
   :: DB.FirstAppDB
@@ -146,6 +155,7 @@ mkRequest rq =
     ( ["list"], "GET" )    -> pure mkListRequest
     -- Finally we don't care about any other requests so build an Error response
     _                      -> pure ( Left UnknownRoute )
+
 
 mkAddRequest
   :: Text
